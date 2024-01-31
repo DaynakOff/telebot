@@ -1,24 +1,8 @@
-import requests
 import telebot
-import json
-
-TOKEN = '6895653645:AAF6njjvsfEb1QWGqXMJFoOufxj79ivxa40'
-
-API_KEY = '280cf57a5643b6a73b6f8a010846380e2072540d'
-
+from extensions import ConvertionException, CurrencyConvert
+from util import TOKEN, keys
 
 bot = telebot.TeleBot(TOKEN)
-
-keys = {
-	'рубль': 'RUB',
-	'доллар': 'USD',
-	'евро': 'EUR',
-	'тенге': 'KZT',
-	'фунт': 'GBP',
-	'донг': 'VND',
-	'бат': 'THB',
-	'йена': 'JPY',
-}
 
 
 @bot.message_handler(commands=['help', 'start'])
@@ -44,13 +28,19 @@ def values(message):
 
 @bot.message_handler(content_types=['text'])
 def convert(message):
-	quote, base, amount = message.text.split(' ')
-	api_url = f'https://api.getgeoapi.com/v2/currency/convert?\
-api_key={API_KEY}&from={keys[quote]}&to={keys[base]}&amount=\
-{amount}&format=json'
-	r = requests.get(api_url)
-	answer = json.loads(r.content)['rates'][keys[base]]['rate_for_amount']
-	bot.send_message(message.chat.id, answer)
+	try:
+		value = message.text.lower().split(' ')
+		if len(value) != 3:
+			raise ConvertionException("Слишком много параметров")
+
+		quote, base, amount = value
+		answer = CurrencyConvert.get_price(quote, base, amount)
+	except ConvertionException as e:
+		bot.reply_to(message, f"Ошибка пользователя.\n{e}")
+	except Exception as e:
+		bot.reply_to(message, f"Не удалось обработать команду.\n{e}")
+	else:
+		bot.send_message(message.chat.id, f'Цена {amount} {quote} в {base} - {answer}')
 
 
 bot.polling()
